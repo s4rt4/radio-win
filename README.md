@@ -4,6 +4,8 @@ Native WPF rebuild of the web-based `radio` project. Same brown/gold look
 (gold-bordered card, gradient slider, spectrum visualizer), but no browser
 runtime — single `.exe`, fast cold-start, no Electron, no WebView.
 
+![Classic Radio](docs/screencapture.jpg)
+
 ## Stack
 
 - **C# 12 / .NET 8 / WPF** — UI rendered via DirectX, no Chromium

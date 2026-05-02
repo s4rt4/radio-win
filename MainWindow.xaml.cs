@@ -164,15 +164,7 @@ public partial class MainWindow : Window
         {
             CancelRetry();
             if (StationsCombo.SelectedItem is not Station st) return;
-            try
-            {
-                using var media = new Media(_libVLC, new Uri(st.Url));
-                _player.Play(media); // Opening → Buffering → Playing or another Error
-            }
-            catch
-            {
-                MaybeRetryOrFail();
-            }
+            PlayStation(st);
         };
         _retryTimer.Start();
     }
@@ -773,9 +765,18 @@ public partial class MainWindow : Window
         CancelRetry();
         _retryAttempt = 0; // user-initiated play resets the chain
         EnsureAudioPipeline();
+        PlayStation(st);
+    }
+
+    private void PlayStation(Station st)
+    {
         try
         {
             _currentStationName = st.Name;
+            // Always Stop before Play(media): LibVLC's Play(newMedia) doesn't
+            // reliably recover from prior Error/Ended/Stopped-mid-stream
+            // states. Explicitly stopping first guarantees a clean restart.
+            _player.Stop();
             // LibVLC handles HLS, Icecast, Shoutcast, raw mp3/aac streams natively.
             using var media = new Media(_libVLC, new Uri(st.Url));
             _player.Play(media);
