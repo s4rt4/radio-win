@@ -1,0 +1,789 @@
+<Window x:Class="ClassicRadio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        Title="Classic Radio"
+        Icon="/radio-win-logo.ico"
+        Height="475" Width="420"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanMinimize"
+        FontFamily="Georgia"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="48"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+
+        <!-- ============================== Round media button ============================== -->
+        <Style x:Key="RoundButton" TargetType="Button">
+            <Setter Property="Width" Value="45"/>
+            <Setter Property="Height" Value="45"/>
+            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="Background" Value="#795548"/>
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse x:Name="circle"
+                                     Fill="{TemplateBinding Background}"
+                                     Stroke="{TemplateBinding BorderBrush}"
+                                     StrokeThickness="{TemplateBinding BorderThickness}"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="circle" Property="Fill" Value="#ffd700"/>
+                                <Setter Property="Foreground" Value="#4E342E"/>
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="1.1" ScaleY="1.1"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.95" ScaleY="0.95"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="circle" Property="StrokeThickness" Value="2.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================== Volume slider ============================== -->
+        <Style x:Key="GoldSlider" TargetType="Slider">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="SmallChange" Value="1"/>
+            <Setter Property="LargeChange" Value="5"/>
+            <Setter Property="AutoToolTipPlacement" Value="TopLeft"/>
+            <Setter Property="AutoToolTipPrecision" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid VerticalAlignment="Center">
+                            <Border Height="6" CornerRadius="3" VerticalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="#ffd700" Offset="0"/>
+                                        <GradientStop Color="#8d6e63" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="16" Height="16">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Fill="#ffd700" Stroke="#4e342e" StrokeThickness="2"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Grid Width="15" Height="15" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse x:Name="ring"
+                                         Stroke="#ffd700"
+                                         StrokeThickness="1.5"
+                                         Fill="Transparent"/>
+                                <Ellipse x:Name="dot"
+                                         Width="7" Height="7"
+                                         Fill="#ffd700"
+                                         Visibility="Collapsed"/>
+                            </Grid>
+                            <ContentPresenter VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ring" Property="Stroke" Value="#fff8c4"/>
+                                <Setter TargetName="dot" Property="Fill" Value="#fff8c4"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ring" Property="StrokeThickness" Value="2.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================== Title bar buttons ============================== -->
+        <Style x:Key="ChromeButton" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#6d4c41"/>
+                                <Setter Property="Foreground" Value="#fff8c4"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#5d4037"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseChromeButton" TargetType="Button" BasedOn="{StaticResource ChromeButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="0,13,0,0">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#c1121f"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#8c0000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================== Thin gold scrollbar ============================== -->
+        <Style x:Key="InvisibleRepeat" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="bg"
+                                Background="#8d6e63"
+                                CornerRadius="3"
+                                Margin="1,2"
+                                Opacity="0.55"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#ffd700"/>
+                                <Setter TargetName="bg" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#ffd700"/>
+                                <Setter TargetName="bg" Property="Opacity" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="6"/>
+                    <Setter Property="MinWidth" Value="6"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ScrollBar">
+                                <Grid Background="Transparent">
+                                    <Track Name="PART_Track" IsDirectionReversed="True">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource InvisibleRepeat}"
+                                                          Command="ScrollBar.PageUpCommand"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource InvisibleRepeat}"
+                                                          Command="ScrollBar.PageDownCommand"/>
+                                        </Track.IncreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollThumb}"/>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ============================== ComboBox: full retemplate ============================== -->
+        <Style x:Key="ComboToggle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="ClickMode" Value="Press"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#5d4037"/>
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="MaxDropDownHeight" Value="320"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="root"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    SnapsToDevicePixels="True">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="32"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <ContentPresenter x:Name="ContentSite"
+                                                      Grid.Column="0"
+                                                      Margin="12,7,0,7"
+                                                      VerticalAlignment="Center"
+                                                      IsHitTestVisible="False"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                      TextElement.Foreground="{TemplateBinding Foreground}"/>
+
+                                    <Path Grid.Column="1"
+                                          Data="M 0,0 L 5,5 L 10,0"
+                                          Stroke="#ffd700"
+                                          StrokeThickness="1.6"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <ToggleButton Style="{StaticResource ComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   PopupAnimation="Fade"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}">
+                                <Grid Margin="0,4,0,12"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Background="#4e342e"
+                                            BorderBrush="#ffd700"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            SnapsToDevicePixels="True">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.55" Color="Black"/>
+                                        </Border.Effect>
+                                        <ScrollViewer Margin="2,4"
+                                                      SnapsToDevicePixels="True"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsPresenter SnapsToDevicePixels="True"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="root" Property="Background" Value="#6d4c41"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="root" Property="Background" Value="#6d4c41"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ============================== ComboBoxItem: flat, rounded, no separators ============================== -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="2,1"/>
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="bg"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="5">
+                            <ContentPresenter VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#5d4037"/>
+                                <Setter Property="Foreground" Value="#ffd700"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#ffd700"/>
+                                <Setter Property="Foreground" Value="#3e2723"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Group header (Luar Negeri country labels) -->
+        <Style TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="#ffd700"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       Padding="14,8,8,2"
+                                       Opacity="0.85"/>
+                            <ItemsPresenter/>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+    <Border x:Name="RootBorder"
+            Background="#4e342e"
+            BorderBrush="#ffd700"
+            BorderThickness="2"
+            CornerRadius="15">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ===== Custom title bar ===== -->
+            <Border Grid.Row="0"
+                    Background="#3E2723"
+                    CornerRadius="13,13,0,0"
+                    BorderThickness="0,0,0,1">
+                <Border.BorderBrush>
+                    <SolidColorBrush Color="#ffd700" Opacity="0.28"/>
+                </Border.BorderBrush>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="14,0,0,0"
+                                IsHitTestVisible="False">
+                        <Image x:Name="HeaderLogo"
+                               Source="/radio-win-logo.png"
+                               Width="24" Height="24"
+                               Margin="0,0,10,0"
+                               RenderTransformOrigin="0.5,0.5"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <TextBlock Text="Classic Radio"
+                                   Foreground="#ffd700"
+                                   FontSize="15"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                        <Button x:Name="SettingsBtn"
+                                Style="{StaticResource ChromeButton}"
+                                Content="&#xE713;"
+                                ToolTip="Edit stations"
+                                Click="Settings_Click"/>
+                        <Button x:Name="MinBtn"
+                                Style="{StaticResource ChromeButton}"
+                                Content="&#xE921;"
+                                ToolTip="Minimize"
+                                Click="Min_Click"/>
+                        <Button x:Name="CloseBtn"
+                                Style="{StaticResource CloseChromeButton}"
+                                Content="&#xE8BB;"
+                                ToolTip="Close"
+                                Click="Close_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===== Content ===== -->
+            <StackPanel Grid.Row="1" Margin="20,2,20,12">
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Margin="0,4,0,8">
+                    <RadioButton x:Name="SourceIdRadio"
+                                 Content="Indonesia"
+                                 IsChecked="True"
+                                 GroupName="Source"
+                                 Checked="SourceChanged"/>
+                    <RadioButton x:Name="SourceIntlRadio"
+                                 Content="Luar Negeri"
+                                 GroupName="Source"
+                                 Checked="SourceChanged"/>
+                </StackPanel>
+
+                <ComboBox x:Name="StationsCombo"
+                          Margin="0,2">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <!-- Default (popup item idle / closed-state selection) -->
+                                        <Setter Property="Foreground" Value="#ffd700"/>
+                                        <Style.Triggers>
+                                            <!-- Selected item in popup → invert to brown on gold bg -->
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Path=IsSelected}" Value="True">
+                                                <Setter Property="Foreground" Value="#3e2723"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Margin="0,12,0,4">
+                    <Button x:Name="PrevBtn"  Style="{StaticResource RoundButton}"
+                            Content="&#xE100;" Click="PrevBtn_Click"  ToolTip="Previous"
+                            MouseEnter="PrevBtn_MouseEnter"/>
+                    <Button x:Name="PlayBtn"  Style="{StaticResource RoundButton}"
+                            Content="&#xE768;" Click="PlayBtn_Click"  ToolTip="Play"/>
+                    <Button x:Name="PauseBtn" Style="{StaticResource RoundButton}"
+                            Content="&#xE769;" Click="PauseBtn_Click" ToolTip="Pause"/>
+                    <Button x:Name="NextBtn"  Style="{StaticResource RoundButton}"
+                            Content="&#xE101;" Click="NextBtn_Click"  ToolTip="Next"
+                            MouseEnter="NextBtn_MouseEnter"/>
+                    <Button x:Name="MuteBtn"  Style="{StaticResource RoundButton}"
+                            Content="&#xE767;" Click="MuteBtn_Click"  ToolTip="Mute / Unmute"/>
+                </StackPanel>
+
+                <Slider x:Name="VolumeSlider"
+                        Style="{StaticResource GoldSlider}"
+                        Value="100"
+                        Margin="10,8,10,4"
+                        ValueChanged="VolumeSlider_ValueChanged">
+                    <Slider.ToolTip>
+                        <ToolTip Content="{Binding Value, ElementName=VolumeSlider, StringFormat={}{0:F0}%}"/>
+                    </Slider.ToolTip>
+                </Slider>
+
+                <Border BorderBrush="#ffd700" BorderThickness="1"
+                        CornerRadius="10"
+                        Background="#3e2723"
+                        Margin="0,10,0,0"
+                        Height="160"
+                        ClipToBounds="True">
+                    <Canvas x:Name="VisualizerCanvas"
+                            ClipToBounds="True"
+                            SnapsToDevicePixels="True"/>
+                </Border>
+
+                <TextBlock x:Name="StatusText"
+                           Text="Select a station to play"
+                           Foreground="#ffe082"
+                           FontSize="13"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+
+    <!-- ==================== Tray icon + popup + context menu ==================== -->
+    <tb:TaskbarIcon x:Name="TrayIcon"
+                    IconSource="/radio-win-logo.ico"
+                    ToolTipText="Classic Radio"
+                    NoLeftClickDelay="True">
+
+        <tb:TaskbarIcon.ContextMenu>
+            <ContextMenu>
+                <ContextMenu.Resources>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Padding" Value="14,6"/>
+                        <Setter Property="FontFamily" Value="Segoe UI"/>
+                    </Style>
+                </ContextMenu.Resources>
+                <MenuItem Header="Show Radio" FontWeight="Bold" Click="TrayShow_Click"/>
+                <Separator/>
+                <MenuItem Header="Exit" Click="TrayExit_Click"/>
+            </ContextMenu>
+        </tb:TaskbarIcon.ContextMenu>
+
+        <tb:TaskbarIcon.TrayPopup>
+            <Border Background="#4e342e"
+                    BorderBrush="#ffd700"
+                    BorderThickness="2"
+                    CornerRadius="12"
+                    Width="320"
+                    Padding="16"
+                    TextElement.FontFamily="Segoe UI">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="6" Opacity="0.6" Color="Black"/>
+                </Border.Effect>
+
+                <StackPanel>
+                    <!-- Logo + station name + status -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                                Background="#3e2723"
+                                CornerRadius="8"
+                                Width="56" Height="56"
+                                ClipToBounds="True">
+                            <Image Source="/radio-win-logo.png"
+                                   Width="48" Height="48"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="PopupStationName"
+                                       Text="Classic Radio"
+                                       Foreground="#ffd700"
+                                       FontSize="15"
+                                       FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="PopupStatusText"
+                                       Text="Select a station to play"
+                                       Foreground="#ffe082"
+                                       FontSize="12"
+                                       Margin="0,3,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Volume row -->
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="&#xE767;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   Foreground="#ffd700"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+                        <Slider Grid.Column="1"
+                                x:Name="PopupVolumeSlider"
+                                Style="{StaticResource GoldSlider}"
+                                Value="100"
+                                VerticalAlignment="Center"
+                                ValueChanged="PopupVolumeSlider_ValueChanged"/>
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding ElementName=PopupVolumeSlider, Path=Value, StringFormat={}{0:F0}%}"
+                                   Foreground="#ffd700"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,0,0"
+                                   MinWidth="36"
+                                   TextAlignment="Right"/>
+                    </Grid>
+
+                    <!-- Playback buttons -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,16,0,0">
+                        <Button Style="{StaticResource RoundButton}"
+                                Content="&#xE100;" Click="PrevBtn_Click"
+                                Width="38" Height="38" FontSize="13"
+                                Margin="3,0" ToolTip="Previous"/>
+                        <Button Style="{StaticResource RoundButton}"
+                                Content="&#xE768;" Click="PlayBtn_Click"
+                                Width="38" Height="38" FontSize="13"
+                                Margin="3,0" ToolTip="Play"/>
+                        <Button Style="{StaticResource RoundButton}"
+                                Content="&#xE769;" Click="PauseBtn_Click"
+                                Width="38" Height="38" FontSize="13"
+                                Margin="3,0" ToolTip="Pause"/>
+                        <Button Style="{StaticResource RoundButton}"
+                                Content="&#xE101;" Click="NextBtn_Click"
+                                Width="38" Height="38" FontSize="13"
+                                Margin="3,0" ToolTip="Next"/>
+                    </StackPanel>
+
+                    <!-- Action links: Exit (left) + Show Radio (right) -->
+                    <Grid Margin="0,14,0,0">
+                        <Button HorizontalAlignment="Left"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Foreground="#ff8a80"
+                                Cursor="Hand"
+                                FontSize="12"
+                                Content="Exit"
+                                ToolTip="Quit Classic Radio"
+                                Click="TrayExit_Click">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <TextBlock x:Name="t"
+                                               Text="{TemplateBinding Content}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontSize="{TemplateBinding FontSize}"
+                                               TextDecorations="Underline"/>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="t" Property="Foreground" Value="#ff5252"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button HorizontalAlignment="Right"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Foreground="#ffd700"
+                                Cursor="Hand"
+                                FontSize="12"
+                                Content="Show Radio"
+                                Click="TrayShow_Click">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <TextBlock x:Name="t"
+                                               Text="{TemplateBinding Content}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontSize="{TemplateBinding FontSize}"
+                                               TextDecorations="Underline"/>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="t" Property="Foreground" Value="#fff8c4"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </tb:TaskbarIcon.TrayPopup>
+    </tb:TaskbarIcon>
+    </Grid>
+</Window>
