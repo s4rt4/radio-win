@@ -321,6 +321,52 @@
             <Setter Property="Padding" Value="2,4"/>
         </Style>
 
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border x:Name="box"
+                                    Width="16" Height="16"
+                                    BorderBrush="#ffd700" BorderThickness="1.5"
+                                    CornerRadius="3"
+                                    Background="Transparent"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center">
+                                <Path x:Name="check"
+                                      Data="M 0,4 L 4,8 L 11,1"
+                                      Stroke="#ffd700"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="box" Property="Background" Value="#3E2723"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="box" Property="BorderBrush" Value="#fff8c4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="ListBoxItem">
             <Setter Property="Padding" Value="12,8"/>
             <Setter Property="Margin" Value="2,1"/>
@@ -394,8 +440,31 @@
                 </Grid>
             </Border>
 
-            <!-- ===== Body: master-detail ===== -->
+            <!-- ===== Body: preferences + master-detail ===== -->
             <Grid Grid.Row="1" Margin="18,14,18,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Preferences row -->
+                <Border Grid.Row="0"
+                        Background="#3E2723"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14,10"
+                        Margin="0,0,0,14">
+                    <Border.BorderBrush>
+                        <SolidColorBrush Color="#ffd700" Opacity="0.4"/>
+                    </Border.BorderBrush>
+                    <CheckBox x:Name="PersistentReconnectChk"
+                              Content="Keep retrying on connection loss (no give-up — capped backoff up to 5 min)"
+                              Click="PersistentReconnectChk_Click"
+                              ToolTip="When enabled, the player retries forever after a stream error instead of giving up after 3 attempts. Useful for all-day listening."/>
+                </Border>
+
+                <!-- Master-detail row -->
+                <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="280"/>
                     <ColumnDefinition Width="*"/>
@@ -459,6 +528,7 @@
                             Content="Save Changes"
                             HorizontalAlignment="Right"
                             Click="Save_Click"/>
+                </Grid>
                 </Grid>
             </Grid>
         </Grid>

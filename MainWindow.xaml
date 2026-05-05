@@ -137,6 +137,44 @@
             </Setter>
         </Style>
 
+        <!-- ============================== Favorite toggle button ============================== -->
+        <Style x:Key="FavButton" TargetType="Button">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Background" Value="#5d4037"/>
+            <Setter Property="Foreground" Value="#ffd700"/>
+            <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#6d4c41"/>
+                                <Setter Property="Foreground" Value="#fff8c4"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="bg" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="RadioButton">
             <Setter Property="Foreground" Value="#ffd700"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -542,10 +580,26 @@
                                  Content="Luar Negeri"
                                  GroupName="Source"
                                  Checked="SourceChanged"/>
+                    <RadioButton x:Name="SourceFavRadio"
+                                 Content="★ Favorit"
+                                 GroupName="Source"
+                                 Checked="SourceChanged"/>
                 </StackPanel>
 
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="1"
+                            x:Name="FavBtn"
+                            Style="{StaticResource FavButton}"
+                            Content="&#xE734;"
+                            ToolTip="Toggle favorite"
+                            Margin="8,0,0,0"
+                            Click="FavBtn_Click"/>
                 <ComboBox x:Name="StationsCombo"
-                          Margin="0,2">
+                          Grid.Column="0">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Name}">
@@ -565,6 +619,7 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+                </Grid>
 
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"

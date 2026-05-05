@@ -17,8 +17,10 @@ public class StationData
 
 public class AppState
 {
-    public string? LastSource { get; set; }   // "Indonesia" | "International"
+    public string? LastSource { get; set; }   // "Indonesia" | "International" | "Favorites"
     public string? LastStation { get; set; }  // station name (resilient to list reorder)
     public int Volume { get; set; } = 100;
     public bool Muted { get; set; }
+    public bool PersistentReconnect { get; set; }   // Sprint 1: keep retrying forever
+    public List<string> Favorites { get; set; } = new(); // station names
 }

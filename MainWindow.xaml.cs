@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
@@ -47,8 +48,19 @@ public partial class MainWindow : Window
 
     private DispatcherTimer? _renderTimer;
     private DispatcherTimer? _retryTimer;
+    private DispatcherTimer? _watchdogTimer;
     private int _retryAttempt;
+    // Default chain — bounded "give up after 3 attempts" behavior.
     private static readonly int[] RetryDelaysSec = { 2, 5, 10 };
+    // Persistent chain — never gives up, capped at last entry (5 min).
+    private static readonly int[] RetryDelaysSecPersistent = { 2, 5, 10, 30, 60, 120, 300 };
+
+    // No-audio watchdog: Playing state but no PCM samples for >5s → force reconnect
+    private DateTime _lastAudioCallback = DateTime.MaxValue;
+
+    // Suppress auto-play during programmatic selection changes (BindStations,
+    // ApplyState). Set true around those calls; SelectionChanged checks it.
+    private bool _suppressAutoPlay;
 
     private const int FftLength = 512;     // shorter window = updates twice as fast (~11ms)
     private const int BarCount = 64;
@@ -112,6 +124,7 @@ public partial class MainWindow : Window
         _player = new MediaPlayer(_libVLC) { Volume = 100 };
 
         HookPlayerEvents();
+        NetworkChange.NetworkAvailabilityChanged += OnNetworkChanged;
 
         Loaded += OnLoaded;
         Closed += OnClosed;
@@ -135,15 +148,32 @@ public partial class MainWindow : Window
 
     private void MaybeRetryOrFail()
     {
-        if (_retryAttempt >= RetryDelaysSec.Length || string.IsNullOrEmpty(_currentStationName))
+        if (string.IsNullOrEmpty(_currentStationName))
         {
-            // out of attempts or no station context — show plain error
             SetError();
             _retryAttempt = 0;
             return;
         }
-        var delay = RetryDelaysSec[_retryAttempt];
-        _retryAttempt++;
+
+        int delay;
+        if (_state.PersistentReconnect)
+        {
+            // Infinite chain — clamp index to last entry (5 min).
+            var idx = Math.Min(_retryAttempt, RetryDelaysSecPersistent.Length - 1);
+            delay = RetryDelaysSecPersistent[idx];
+            _retryAttempt++;
+        }
+        else
+        {
+            if (_retryAttempt >= RetryDelaysSec.Length)
+            {
+                SetError();
+                _retryAttempt = 0;
+                return;
+            }
+            delay = RetryDelaysSec[_retryAttempt];
+            _retryAttempt++;
+        }
         ScheduleRetry(delay);
     }
 
@@ -398,16 +428,30 @@ public partial class MainWindow : Window
 
         LoadState();
         ApplyState();
+        UpdateFavBtnIcon();
 
-        // Wire after restore so initial selection assignments don't get saved.
-        StationsCombo.SelectionChanged += (_, _) =>
-        {
-            ScheduleSave();
-            _retryAttempt = 0; // station change clears retry chain
-        };
+        // Wire after restore so initial selection assignments don't get saved
+        // or auto-played.
+        StationsCombo.SelectionChanged += (_, _) => OnStationSelected();
 
         // First-run hint: pulse the Play button briefly so new users see what to click.
         if (!File.Exists(StatePath)) StartFirstRunHint();
+    }
+
+    private void OnStationSelected()
+    {
+        ScheduleSave();
+        _retryAttempt = 0; // station change clears retry chain
+        UpdateFavBtnIcon();
+
+        if (_suppressAutoPlay || _restoring) return;
+        if (StationsCombo.SelectedItem is not Station st) return;
+
+        // Auto-play immediately on user-initiated selection — saves a click.
+        StopFirstRunHint();
+        CancelRetry();
+        EnsureAudioPipeline();
+        PlayStation(st);
     }
 
     // ====== Taskbar icon (Win32 WM_SETICON) ======
@@ -470,6 +514,9 @@ public partial class MainWindow : Window
         StopStatusAnim();
         StopFirstRunHint();
         CancelRetry();
+        _watchdogTimer?.Stop();
+        _watchdogTimer = null;
+        try { NetworkChange.NetworkAvailabilityChanged -= OnNetworkChanged; } catch { }
         _renderTimer?.Stop();
         try { _audioOut?.Stop(); } catch { }
         _audioOut?.Dispose();
@@ -485,10 +532,17 @@ public partial class MainWindow : Window
         var dlg = new SettingsWindow { Owner = this };
         dlg.ShowDialog();
 
-        // Reload (file may have changed) and re-bind whatever source is active.
-        var wasIntl = SourceIntlRadio.IsChecked == true;
+        // Reload (stations file + state file may have changed in dialog) and
+        // re-bind whatever source is active.
         LoadStationsFromJson();
-        BindStations(wasIntl ? _stationsIntl : _stationsId, grouped: wasIntl);
+        LoadState(); // pick up PersistentReconnect toggle
+        if (SourceFavRadio.IsChecked == true)
+            BindStations(GetFavoritesList(), grouped: false);
+        else if (SourceIntlRadio.IsChecked == true)
+            BindStations(_stationsIntl, grouped: true);
+        else
+            BindStations(_stationsId, grouped: false);
+        UpdateFavBtnIcon();
     }
 
     private void Min_Click(object sender, RoutedEventArgs e)
@@ -639,12 +693,19 @@ public partial class MainWindow : Window
         _restoring = true;
         try
         {
-            // Source
+            // Source — supports "Indonesia" (default), "International", "Favorites".
             if (_state.LastSource == "International")
-                SourceIntlRadio.IsChecked = true; // fires SourceChanged → BindStations(intl, grouped)
+                SourceIntlRadio.IsChecked = true;
+            else if (_state.LastSource == "Favorites")
+                SourceFavRadio.IsChecked = true;
+            // SourceChanged → BindStations on the right source
 
             // Station: look up by name in the now-active list
-            var list = SourceIntlRadio.IsChecked == true ? _stationsIntl : _stationsId;
+            List<Station> list;
+            if (SourceFavRadio.IsChecked == true) list = GetFavoritesList();
+            else if (SourceIntlRadio.IsChecked == true) list = _stationsIntl;
+            else list = _stationsId;
+
             if (!string.IsNullOrEmpty(_state.LastStation))
             {
                 var found = list.FirstOrDefault(s => s.Name == _state.LastStation);
@@ -687,15 +748,87 @@ public partial class MainWindow : Window
         _saveTimer.Start();
     }
 
+    // ====== Network awareness (Sprint 1) ======
+
+    private void OnNetworkChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        OnUI(() =>
+        {
+            if (!e.IsAvailable)
+            {
+                CancelRetry();
+                StopStatusAnim();
+                StopLogoPulse();
+                StatusText.Foreground = ErrorBrush;
+                StatusText.Text = "⚠  Offline — waiting for connection";
+                SyncPopupStatus("⚠ Offline", ErrorBrush);
+                PulseInTextBlock(StatusText);
+                if (PopupStatusText is not null) PulseInTextBlock(PopupStatusText);
+                // Do NOT increment _retryAttempt — we're not failing the stream,
+                // there's just no network. When we come back online we want a
+                // fresh retry chain.
+            }
+            else
+            {
+                // Network restored: kick off an immediate retry if we have a
+                // station selected and we're not already happily playing.
+                if (StationsCombo.SelectedItem is Station st &&
+                    _player.State != VLCState.Playing)
+                {
+                    _retryAttempt = 0;
+                    EnsureAudioPipeline();
+                    PlayStation(st);
+                }
+            }
+        });
+    }
+
+    // ====== Favorites (Sprint 1) ======
+
+    private static readonly string GlyphStarFilled  = char.ConvertFromUtf32(0xE735); // FavoriteStarFill
+    private static readonly string GlyphStarOutline = char.ConvertFromUtf32(0xE734); // FavoriteStar
+
+    private void FavBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (StationsCombo.SelectedItem is not Station st) return;
+        _state.Favorites ??= new List<string>();
+        if (_state.Favorites.Contains(st.Name))
+            _state.Favorites.Remove(st.Name);
+        else
+            _state.Favorites.Add(st.Name);
+        UpdateFavBtnIcon();
+        ScheduleSave();
+
+        // If the user is currently viewing the Favorites filter and just
+        // unfavorited an entry, refresh the list so it disappears.
+        if (SourceFavRadio.IsChecked == true)
+            BindStations(GetFavoritesList(), grouped: false);
+    }
+
+    private void UpdateFavBtnIcon()
+    {
+        if (FavBtn is null) return;
+        var isFav = StationsCombo.SelectedItem is Station st &&
+                    _state.Favorites != null &&
+                    _state.Favorites.Contains(st.Name);
+        FavBtn.Content = isFav ? GlyphStarFilled : GlyphStarOutline;
+        FavBtn.ToolTip = isFav ? "Remove from favorites" : "Add to favorites";
+    }
+
     private void SaveState()
     {
         try
         {
             Directory.CreateDirectory(UserDataDir);
-            _state.LastSource  = SourceIntlRadio.IsChecked == true ? "International" : "Indonesia";
+            if (SourceFavRadio.IsChecked == true)        _state.LastSource = "Favorites";
+            else if (SourceIntlRadio.IsChecked == true)  _state.LastSource = "International";
+            else                                         _state.LastSource = "Indonesia";
             _state.LastStation = (StationsCombo.SelectedItem as Station)?.Name ?? _state.LastStation;
             _state.Volume      = (int)VolumeSlider.Value;
             _state.Muted       = _isMuted;
+            // Favorites is mutated in-place by FavBtn_Click; nothing else to set here.
+            // PersistentReconnect is owned by SettingsWindow but we may have read
+            // it back in LoadState — preserve as-is.
             var json = JsonSerializer.Serialize(_state,
                 new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(StatePath, json);
@@ -739,18 +872,40 @@ public partial class MainWindow : Window
 
     private void BindStations(List<Station> stations, bool grouped)
     {
-        var view = new ListCollectionView(stations);
-        if (grouped)
-            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Station.Country)));
-        StationsCombo.ItemsSource = view;
-        if (stations.Count > 0) StationsCombo.SelectedIndex = 0;
+        // Suppress auto-play during programmatic SelectedIndex=0 below.
+        _suppressAutoPlay = true;
+        try
+        {
+            var view = new ListCollectionView(stations);
+            if (grouped)
+                view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Station.Country)));
+            StationsCombo.ItemsSource = view;
+            if (stations.Count > 0) StationsCombo.SelectedIndex = 0;
+        }
+        finally { _suppressAutoPlay = false; }
+    }
+
+    private List<Station> GetFavoritesList()
+    {
+        var favSet = new HashSet<string>(_state.Favorites ?? new List<string>());
+        return _stationsId.Concat(_stationsIntl)
+            .Where(s => favSet.Contains(s.Name))
+            .ToList();
     }
 
     private void SourceChanged(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
-        var useId = SourceIdRadio.IsChecked == true;
-        BindStations(useId ? _stationsId : _stationsIntl, grouped: !useId);
+
+        if (SourceFavRadio?.IsChecked == true)
+        {
+            BindStations(GetFavoritesList(), grouped: false);
+        }
+        else
+        {
+            var useId = SourceIdRadio.IsChecked == true;
+            BindStations(useId ? _stationsId : _stationsIntl, grouped: !useId);
+        }
         // _player.Stop() will fire Stopped event → status reflects it.
         _player.Stop();
         ScheduleSave();
@@ -890,6 +1045,29 @@ public partial class MainWindow : Window
         _player.SetAudioFormat("S16N", AudioRate, AudioChannels);
         _player.SetAudioCallbacks(_audioPlayCb, null, null, null, null);
         _audioPipelineReady = true;
+
+        StartAudioWatchdog();
+    }
+
+    private void StartAudioWatchdog()
+    {
+        if (_watchdogTimer is not null) return;
+        _watchdogTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _watchdogTimer.Tick += (_, _) => CheckAudioFlow();
+        _watchdogTimer.Start();
+    }
+
+    private void CheckAudioFlow()
+    {
+        if (_player.State != VLCState.Playing) return;
+        if (_lastAudioCallback == DateTime.MaxValue) return; // never received any
+        var stalled = (DateTime.UtcNow - _lastAudioCallback).TotalSeconds;
+        if (stalled > 5)
+        {
+            // Silent stall: state says Playing but no PCM for >5 s. Force a reconnect.
+            _lastAudioCallback = DateTime.MaxValue; // arm fresh; PlayStation will start new flow
+            MaybeRetryOrFail();
+        }
     }
 
     private void StartRenderLoop()
@@ -917,6 +1095,9 @@ public partial class MainWindow : Window
             _audioByteBuf = new byte[Math.Max(byteCount, 8192)];
         var bytes = _audioByteBuf;
         Marshal.Copy(samples, bytes, 0, byteCount);
+
+        // Liveness signal for the no-audio watchdog.
+        _lastAudioCallback = DateTime.UtcNow;
 
         // (1) feed audio output so the user hears it. AddSamples copies internally
         //     so reusing our buffer is safe.

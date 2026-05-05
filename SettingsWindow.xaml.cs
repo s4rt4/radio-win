@@ -20,7 +20,52 @@ public partial class SettingsWindow : Window
         {
             LoadData();
             RebindList();
+            LoadPreferences();
         };
+    }
+
+    private void LoadPreferences()
+    {
+        // Read PersistentReconnect from app state.json (separate file from stations)
+        try
+        {
+            if (File.Exists(MainWindow.StatePath))
+            {
+                var json = File.ReadAllText(MainWindow.StatePath);
+                var s = JsonSerializer.Deserialize<AppState>(json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (s is not null)
+                    PersistentReconnectChk.IsChecked = s.PersistentReconnect;
+            }
+        }
+        catch { /* default unchecked */ }
+    }
+
+    private void PersistentReconnectChk_Click(object sender, RoutedEventArgs e)
+    {
+        // Persist to state.json — merge with existing state to preserve other fields
+        try
+        {
+            AppState s = new();
+            if (File.Exists(MainWindow.StatePath))
+            {
+                try
+                {
+                    var json = File.ReadAllText(MainWindow.StatePath);
+                    s = JsonSerializer.Deserialize<AppState>(json,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                }
+                catch { }
+            }
+            s.PersistentReconnect = PersistentReconnectChk.IsChecked == true;
+            Directory.CreateDirectory(MainWindow.UserDataDir);
+            var outJson = JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(MainWindow.StatePath, outJson);
+        }
+        catch (Exception ex)
+        {
+            StatusMsg.Text = $"Save error: {ex.Message}";
+        }
     }
 
     private List<Station> CurrentList =>
