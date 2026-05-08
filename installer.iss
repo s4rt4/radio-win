@@ -3,7 +3,7 @@
 ; Output: dist\ClassicRadio-Setup-win-x64.exe
 
 #define AppName        "Classic Radio"
-#define AppVersion     "1.0.2"
+#define AppVersion     "1.0.3"
 #define AppPublisher   "Sarta"
 #define AppExeName     "ClassicRadio.exe"
 #define PublishDir     "bin\Release\net8.0-windows\win-x64\publish"

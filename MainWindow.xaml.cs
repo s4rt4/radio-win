@@ -120,7 +120,9 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         Core.Initialize();
-        _libVLC = new LibVLC("--no-video", "--quiet");
+        // --network-caching=300 (was default 1000) cuts the first stage of A/V
+        // lag: less PCM queued in LibVLC's network demux before reaching us.
+        _libVLC = new LibVLC("--no-video", "--quiet", "--network-caching=300");
         _player = new MediaPlayer(_libVLC) { Volume = 100 };
 
         HookPlayerEvents();
@@ -1020,14 +1022,17 @@ public partial class MainWindow : Window
     private void EnsureAudioPipeline()
     {
         if (_audioPipelineReady) return;
+        // 250 ms is plenty for live radio (LibVLC bursts samples; WaveOut drains
+        // at real-time). 3 s was queueing 1-3 s of audio behind what the FFT
+        // already showed — making the visualizer appear to "lead" the sound.
         _audioProvider = new BufferedWaveProvider(new WaveFormat(AudioRate, 16, AudioChannels))
         {
-            BufferDuration = TimeSpan.FromSeconds(3),
+            BufferDuration = TimeSpan.FromMilliseconds(250),
             DiscardOnBufferOverflow = true,
         };
         try
         {
-            _audioOut = new WaveOutEvent { DesiredLatency = 120 };
+            _audioOut = new WaveOutEvent { DesiredLatency = 60 };
             _audioOut.Init(_audioProvider);
             _audioOut.Play();
         }
@@ -1244,7 +1249,8 @@ public partial class MainWindow : Window
             else
             {
                 vel = 0f;
-                pos = pos * 0.86f + target * 0.14f;
+                // Faster falling decay so bars don't "float" 300ms+ after peaks.
+                pos = pos * 0.70f + target * 0.30f;
             }
 
             _smoothBars[i] = pos;
